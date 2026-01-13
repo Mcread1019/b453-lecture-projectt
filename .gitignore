@@ -1,32 +1,18 @@
-# Prerequisites
-*.d
+# Godot 4+ specific ignores
+.godot/
+.nomedia
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Godot-specific ignores
+.import/
+export.cfg
+export_credentials.cfg
+*.tmp
 
-# Precompiled Headers
-*.gch
-*.pch
+# Imported translations (automatically generated from CSV files)
+*.translation
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
