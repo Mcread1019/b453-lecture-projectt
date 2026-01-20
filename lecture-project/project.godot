@@ -11,5 +11,6 @@ config_version=5
 [application]
 
 config/name="Lecture Project"
+run/main_scene="uid://dml310f4xmbk4"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"

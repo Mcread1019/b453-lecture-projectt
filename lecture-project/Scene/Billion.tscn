@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://bkjemtw1vwsyd"]
+
+[ext_resource type="Script" uid="uid://65kocc3dlmst" path="res://Scripts/Billion.gd" id="1_n2bdy"]
+[ext_resource type="Script" uid="uid://buho6yirsuj7g" path="res://Scripts/Billion Visual.gd" id="2_lapwy"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_0hol4"]
+radius = 12.0
+
+[node name="Billion" type="CharacterBody2D" groups=["billions"]]
+scale = Vector2(0.5, 0.5)
+script = ExtResource("1_n2bdy")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_0hol4")
+
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("2_lapwy")

@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3 uid="uid://k5t0om885h81"]
+
+[ext_resource type="Script" uid="uid://bdy2dphmyq1kx" path="res://Scripts/Base.gd" id="1_0ce0i"]
+[ext_resource type="PackedScene" uid="uid://bkjemtw1vwsyd" path="res://Scene/Billion.tscn" id="2_pntdf"]
+[ext_resource type="Script" uid="uid://buho6yirsuj7g" path="res://Scripts/Billion Visual.gd" id="3_vtgk1"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_0ce0i"]
+
+[node name="Base" type="Node2D" groups=["Bases"]]
+script = ExtResource("1_0ce0i")
+billion_scene = ExtResource("2_pntdf")
+
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("3_vtgk1")
+outer_radius = 40.0
+inner_radius = 12.0
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+shape = SubResource("CircleShape2D_0ce0i")
