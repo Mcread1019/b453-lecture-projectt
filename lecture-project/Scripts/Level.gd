@@ -39,6 +39,7 @@ func spawn_bases():
 		var base = base_scene.instantiate() as Base
 		base.global_position = base_positions[i]
 		base.base_color = base_colors[i]
+		base.base_index = i  # Set the base index so billions know which flags to follow
 		base.billion_scene = billion_scene
 		base.add_to_group("bases")
 

@@ -3,8 +3,9 @@ class_name Base
 
 @export var base_color: Color = Color.WHITE
 @export var spawn_interval: float = 3.0
-@export var spawn_radius: float = 51.0  
+@export var spawn_radius: float = 51.0
 @export var billion_scene: PackedScene
+@export var base_index: int = 0  # Index of this base (0-3)
 
 var spawn_timer: Timer
 var spawned_billions: Array[Billion] = []
@@ -30,22 +31,22 @@ func spawn_billion():
 	if not billion_scene:
 		push_error("No billion scene assigned to base!")
 		return
-	
+
 	var spawn_position = find_valid_spawn_position()
 	if spawn_position == Vector2.ZERO:
 		print("Could not find valid spawn position")
 		return
-	
+
 	var billion = billion_scene.instantiate() as Billion
 	billion.global_position = spawn_position
 	billion.set_billion_color(base_color)
-	
+	billion.set_base_index(base_index)  # Set the base index so billion knows which flags to follow
+
 	# Add to the parent (level) instead of to the base itself
 	get_parent().add_child(billion)
-	
-	
+
 	billion.add_to_group("billions")
-	
+
 	spawned_billions.append(billion)
 
 func find_valid_spawn_position() -> Vector2:

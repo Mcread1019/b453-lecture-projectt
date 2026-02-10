@@ -18,6 +18,8 @@ var drag_target: Vector2 = Vector2.ZERO
 
 func _ready():
 	add_to_group("flags")
+	# Set z_index so flags appear in front of billions
+	z_index = 1
 	_setup_sprite()
 
 func _setup_sprite():
