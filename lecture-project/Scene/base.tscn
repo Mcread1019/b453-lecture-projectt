@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://buho6yirsuj7g" path="res://Scripts/Billion Visual.gd" id="3_vtgk1"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_0ce0i"]
+radius = 40.0
 
 [node name="Base" type="Node2D" groups=["Bases"]]
 script = ExtResource("1_0ce0i")

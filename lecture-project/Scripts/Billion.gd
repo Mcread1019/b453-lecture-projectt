@@ -4,6 +4,10 @@ class_name Billion
 @export var color: Color = Color.WHITE
 @export var base_index: int = 0  # Which base/color this billion belongs to
 
+# Health parameters
+@export var max_health: float = 100.0
+var current_health: float = 100.0
+
 # Physics parameters
 @export var max_speed: float = 200.0
 @export var acceleration: float = 400.0
@@ -22,8 +26,11 @@ var arena_bottom: float = 565.0
 var physics_velocity: Vector2 = Vector2.ZERO
 
 func _ready():
+	# Initialize health
+	current_health = max_health
 	# Set up the visual appearance based on color
 	update_visual_color()
+	update_health_visual()
 	# Set z_index so billions appear behind flags
 	z_index = 0
 
@@ -36,6 +43,9 @@ func _physics_process(delta: float):
 
 	# Handle collisions with other billions (billiard ball physics)
 	_handle_billion_collisions()
+
+	# Handle collisions with bases
+	_handle_base_collisions()
 
 	# Apply velocity
 	velocity = physics_velocity
@@ -129,6 +139,31 @@ func _handle_billion_collisions():
 				physics_velocity -= impulse
 				other.physics_velocity += impulse
 
+func _handle_base_collisions():
+	var bases = get_tree().get_nodes_in_group("bases")
+	var base_radius = 40.0  # Base collision radius
+
+	for base in bases:
+		if not is_instance_valid(base):
+			continue
+
+		var to_billion = global_position - base.global_position
+		var distance = to_billion.length()
+		var min_distance = base_radius + collision_radius
+
+		if distance < min_distance and distance > 0.001:
+			# Collision with base - push billion outward
+			var normal = to_billion.normalized()
+
+			# Push billion out of base
+			var overlap = min_distance - distance
+			global_position += normal * (overlap + 1.0)
+
+			# Reflect velocity off the base (bounce)
+			var velocity_toward_base = physics_velocity.dot(-normal)
+			if velocity_toward_base > 0:
+				physics_velocity += normal * velocity_toward_base * 1.5  # Bounce with some force
+
 func _clamp_to_arena():
 	var clamped = false
 
@@ -169,3 +204,26 @@ func update_visual_color():
 		var visual = get_node("Visual")
 		if visual.has_method("set_visual_color"):
 			visual.set_visual_color(color)
+
+func take_damage(amount: float):
+	current_health -= amount
+	update_health_visual()
+
+	if current_health <= 0:
+		die()
+
+func die():
+	# Remove from the billions group and destroy
+	remove_from_group("billions")
+	queue_free()
+
+func update_health_visual():
+	# Update the Visual node's health ratio if it exists
+	if has_node("Visual"):
+		var visual = get_node("Visual")
+		if visual.has_method("set_health_ratio"):
+			var ratio = clamp(current_health / max_health, 0.0, 1.0)
+			visual.set_health_ratio(ratio)
+
+func get_health_ratio() -> float:
+	return clamp(current_health / max_health, 0.0, 1.0)

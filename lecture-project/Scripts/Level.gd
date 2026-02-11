@@ -61,6 +61,9 @@ func _input(event: InputEvent):
 				_handle_mouse_down(base_index, mouse_pos)
 			else:
 				_handle_mouse_up(base_index, mouse_pos)
+		elif mouse_event.button_index == MOUSE_BUTTON_MIDDLE:
+			if mouse_event.pressed:
+				_handle_middle_click(mouse_pos)
 
 	elif event is InputEventMouseMotion:
 		if dragging_flag:
@@ -149,3 +152,20 @@ func _place_flag(base_index: int, pos: Vector2):
 
 	add_child(flag)
 	base_flags[base_index].append(flag)
+
+func _handle_middle_click(mouse_pos: Vector2):
+	# Middle-click applies damage to the clicked billion (for testing)
+	var clicked_billion = _get_billion_at_position(mouse_pos)
+	if clicked_billion:
+		clicked_billion.take_damage(20.0)  # Apply 20 damage per click
+
+func _get_billion_at_position(pos: Vector2) -> Billion:
+	var billions = get_tree().get_nodes_in_group("billions")
+	for billion in billions:
+		if not is_instance_valid(billion):
+			continue
+		var distance = pos.distance_to(billion.global_position)
+		# Use collision_radius for click detection
+		if distance <= billion.collision_radius * 2:  # *2 for easier clicking
+			return billion
+	return null
