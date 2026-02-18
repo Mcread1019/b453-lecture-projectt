@@ -25,6 +25,9 @@ var arena_bottom: float = 565.0
 # Current velocity for physics
 var physics_velocity: Vector2 = Vector2.ZERO
 
+# Turret
+var turret_sprite: Sprite2D
+
 func _ready():
 	# Initialize health
 	current_health = max_health
@@ -33,6 +36,17 @@ func _ready():
 	update_health_visual()
 	# Set z_index so billions appear behind flags
 	z_index = 0
+	# Set up turret
+	_setup_turret()
+
+func _setup_turret():
+	turret_sprite = Sprite2D.new()
+	turret_sprite.texture = load("res://kenney_pirate-pack/PNG/Default size/Ship parts/cannonMobile.png")
+	# Scale turret to be visible, barrel should stick out from the billion circle
+	turret_sprite.scale = Vector2(0.85, 0.85)
+	# Offset turret so barrel extends past the billion edge
+	turret_sprite.offset = Vector2(turret_sprite.texture.get_width() * 0.45, 0)
+	add_child(turret_sprite)
 
 func _physics_process(delta: float):
 	# Find target flag and apply movement
@@ -53,6 +67,9 @@ func _physics_process(delta: float):
 
 	# Clamp to arena bounds
 	_clamp_to_arena()
+
+	# Update turret rotation to point at nearest opponent
+	_update_turret_rotation()
 
 func _get_nearest_flag_position() -> Vector2:
 	var flags = get_tree().get_nodes_in_group("flags")
@@ -190,6 +207,36 @@ func _clamp_to_arena():
 		global_position.y = arena_bottom - collision_radius
 		physics_velocity.y = -abs(physics_velocity.y) * 0.5
 		clamped = true
+
+func _update_turret_rotation():
+	if not turret_sprite:
+		return
+
+	var nearest_opponent = _get_nearest_opponent()
+	if nearest_opponent:
+		# Calculate angle from this billion to the nearest opponent
+		# The cannon texture points to the right (0 radians), so angle_to_point works directly
+		var direction = nearest_opponent.global_position - global_position
+		# Account for the parent's scale (0.5, 0.5) - rotation is in local space
+		turret_sprite.rotation = direction.angle()
+
+func _get_nearest_opponent() -> Billion:
+	var billions = get_tree().get_nodes_in_group("billions")
+	var nearest: Billion = null
+	var nearest_dist: float = INF
+
+	for other in billions:
+		if other == self or not is_instance_valid(other):
+			continue
+		# Opponent = different base_index
+		if other.base_index == base_index:
+			continue
+		var dist = global_position.distance_to(other.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = other
+
+	return nearest
 
 func set_billion_color(new_color: Color):
 	color = new_color
