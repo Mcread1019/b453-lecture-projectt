@@ -28,6 +28,12 @@ var physics_velocity: Vector2 = Vector2.ZERO
 # Turret
 var turret_sprite: Sprite2D
 
+# Firing parameters
+@export var fire_interval: float = 1.5  # Seconds between shots (different from base spawn interval)
+@export var fire_range: float = 250.0  # Max distance to target before firing
+var fire_timer: float = 0.0
+var blaster_scene: PackedScene
+
 func _ready():
 	# Initialize health
 	current_health = max_health
@@ -38,6 +44,10 @@ func _ready():
 	z_index = 0
 	# Set up turret
 	_setup_turret()
+	# Load blaster scene
+	blaster_scene = load("res://Scene/Blaster.tscn")
+	# Randomize initial fire timer so not all billions fire at once
+	fire_timer = randf() * fire_interval
 
 func _setup_turret():
 	turret_sprite = Sprite2D.new()
@@ -70,6 +80,45 @@ func _physics_process(delta: float):
 
 	# Update turret rotation to point at nearest opponent
 	_update_turret_rotation()
+
+	# Handle firing
+	_handle_firing(delta)
+
+func _handle_firing(delta: float):
+	fire_timer -= delta
+	if fire_timer > 0.0:
+		return
+
+	var nearest_opponent = _get_nearest_opponent()
+	if not nearest_opponent:
+		return
+
+	var dist_to_opponent = global_position.distance_to(nearest_opponent.global_position)
+	if dist_to_opponent > fire_range:
+		return
+
+	# Fire!
+	fire_timer = fire_interval
+	_fire_blaster(nearest_opponent)
+
+func _fire_blaster(target: Billion):
+	if not blaster_scene:
+		return
+
+	# Calculate turret barrel end position in global space
+	# The turret offset is along the local X axis of the turret sprite
+	var turret_angle = turret_sprite.rotation
+	var barrel_length = turret_sprite.texture.get_width() * 0.45 * turret_sprite.scale.x
+	# Account for the billion's own scale (0.5)
+	var barrel_offset = Vector2(cos(turret_angle), sin(turret_angle)) * barrel_length * scale.x
+	var spawn_pos = global_position + barrel_offset
+
+	# Direction from billion to target
+	var fire_direction = (target.global_position - global_position).normalized()
+
+	var blaster = blaster_scene.instantiate() as Blaster
+	get_tree().current_scene.add_child(blaster)
+	blaster.setup(spawn_pos, fire_direction, color, base_index)
 
 func _get_nearest_flag_position() -> Vector2:
 	var flags = get_tree().get_nodes_in_group("flags")
