@@ -89,19 +89,19 @@ func _handle_firing(delta: float):
 	if fire_timer > 0.0:
 		return
 
-	var nearest_opponent = _get_nearest_opponent()
-	if not nearest_opponent:
+	var nearest_target = _get_nearest_target()
+	if not nearest_target:
 		return
 
-	var dist_to_opponent = global_position.distance_to(nearest_opponent.global_position)
-	if dist_to_opponent > fire_range:
+	var dist_to_target = global_position.distance_to(nearest_target.global_position)
+	if dist_to_target > fire_range:
 		return
 
 	# Fire!
 	fire_timer = fire_interval
-	_fire_blaster(nearest_opponent)
+	_fire_blaster(nearest_target)
 
-func _fire_blaster(target: Billion):
+func _fire_blaster(target: Node2D):
 	if not blaster_scene:
 		return
 
@@ -261,15 +261,16 @@ func _update_turret_rotation():
 	if not turret_sprite:
 		return
 
-	var nearest_opponent = _get_nearest_opponent()
-	if nearest_opponent:
-		# Calculate angle from this billion to the nearest opponent
+	var nearest_target = _get_nearest_target()
+	if nearest_target:
+		# Calculate angle from this billion to the nearest target
 		# The cannon texture points to the right (0 radians), so angle_to_point works directly
-		var direction = nearest_opponent.global_position - global_position
+		var direction = nearest_target.global_position - global_position
 		# Account for the parent's scale (0.5, 0.5) - rotation is in local space
 		turret_sprite.rotation = direction.angle()
 
 func _get_nearest_opponent() -> Billion:
+	# Legacy function - returns nearest opponent billion only
 	var billions = get_tree().get_nodes_in_group("billions")
 	var nearest: Billion = null
 	var nearest_dist: float = INF
@@ -286,6 +287,37 @@ func _get_nearest_opponent() -> Billion:
 			nearest = other
 
 	return nearest
+
+func _get_nearest_target() -> Node2D:
+	# Returns nearest opponent (billion OR base), whichever is closer
+	var nearest_target: Node2D = null
+	var nearest_dist: float = INF
+
+	# Check opponent billions
+	var billions = get_tree().get_nodes_in_group("billions")
+	for other in billions:
+		if other == self or not is_instance_valid(other):
+			continue
+		if other.base_index == base_index:
+			continue
+		var dist = global_position.distance_to(other.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_target = other
+
+	# Check opponent bases
+	var bases = get_tree().get_nodes_in_group("bases")
+	for other_base in bases:
+		if not is_instance_valid(other_base):
+			continue
+		if other_base.base_index == base_index:
+			continue
+		var dist = global_position.distance_to(other_base.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_target = other_base
+
+	return nearest_target
 
 func set_billion_color(new_color: Color):
 	color = new_color

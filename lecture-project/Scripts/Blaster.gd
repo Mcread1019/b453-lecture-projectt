@@ -37,8 +37,9 @@ func _physics_process(delta: float):
 		queue_free()
 		return
 
-	# Check collisions with opposing billions
+	# Check collisions with opposing billions and bases
 	_check_billion_collisions()
+	_check_base_collisions()
 
 func _is_outside_arena() -> bool:
 	return (global_position.x < arena_left or
@@ -58,9 +59,42 @@ func _check_billion_collisions():
 		# Check collision with opposing billion
 		var distance = global_position.distance_to(billion.global_position)
 		if distance <= billion.collision_radius + shot_radius:
-			# Damage the billion and destroy the blaster
+			# Check if this hit will kill the billion
+			var will_kill = billion.current_health <= damage
+
+			# Damage the billion
 			billion.take_damage(damage)
+
+			# Award XP to the owner base if killed
+			if will_kill:
+				_award_xp_to_owner()
+
 			queue_free()
+			return
+
+func _check_base_collisions():
+	var bases = get_tree().get_nodes_in_group("bases")
+
+	for base_node in bases:
+		if not is_instance_valid(base_node):
+			continue
+		# Pass through same-team bases
+		if base_node.base_index == owner_base_index:
+			continue
+		# Check collision with opposing base
+		var distance = global_position.distance_to(base_node.global_position)
+		if distance <= base_node.collision_radius + shot_radius:
+			# Damage the base and destroy the blaster
+			base_node.take_damage(damage)
+			queue_free()
+			return
+
+func _award_xp_to_owner():
+	# Find the owner base and award XP
+	var bases = get_tree().get_nodes_in_group("bases")
+	for base_node in bases:
+		if is_instance_valid(base_node) and base_node.base_index == owner_base_index:
+			base_node.add_xp(base_node.xp_per_kill)
 			return
 
 func setup(pos: Vector2, dir: Vector2, col: Color, base_idx: int):

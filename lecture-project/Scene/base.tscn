@@ -14,7 +14,8 @@ billion_scene = ExtResource("2_pntdf")
 [node name="Visual" type="Node2D" parent="."]
 script = ExtResource("3_vtgk1")
 outer_radius = 40.0
-inner_radius = 12.0
+inner_radius = 30.0
+is_base_visual = true
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 

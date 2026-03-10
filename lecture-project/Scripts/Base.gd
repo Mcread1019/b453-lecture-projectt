@@ -12,6 +12,16 @@ class_name Base
 @export var turret_fire_interval: float = 2.0  # Different from billion fire interval (1.5)
 @export var turret_fire_range: float = 400.0  # Range to start firing
 
+# Health parameters
+@export var max_health: float = 500.0
+var current_health: float = 500.0
+@export var collision_radius: float = 40.0  # For blaster collision detection
+
+# Experience parameters
+@export var xp_threshold: float = 100.0  # XP needed to rank up
+var current_xp: float = 0.0
+@export var xp_per_kill: float = 25.0  # XP gained when killing an opponent billion
+
 var spawn_timer: Timer
 var spawned_billions: Array[Billion] = []
 
@@ -22,6 +32,9 @@ var turret_fire_timer: float = 0.0
 var base_blaster_scene: PackedScene
 
 func _ready():
+	# Initialize health
+	current_health = max_health
+
 	# Set up visual appearance
 	if has_node("Visual"):
 		var visual = get_node("Visual")
@@ -43,6 +56,10 @@ func _ready():
 
 	# Randomize initial fire timer
 	turret_fire_timer = randf() * turret_fire_interval
+
+	# Update visual bars
+	_update_health_visual()
+	_update_xp_visual()
 
 func _setup_turret():
 	turret_sprite = Sprite2D.new()
@@ -222,3 +239,42 @@ func set_base_color(new_color: Color):
 		var visual = get_node("Visual")
 		if visual.has_method("set_visual_color"):
 			visual.set_visual_color(base_color)
+
+func take_damage(amount: float):
+	current_health -= amount
+	_update_health_visual()
+
+	if current_health <= 0:
+		die()
+
+func die():
+	# Stop spawning
+	if spawn_timer:
+		spawn_timer.stop()
+
+	# Remove from bases group and destroy
+	remove_from_group("bases")
+	queue_free()
+
+func add_xp(amount: float):
+	current_xp += amount
+	_update_xp_visual()
+	# Note: rank up logic could be added here in the future
+
+func get_health_ratio() -> float:
+	return clamp(current_health / max_health, 0.0, 1.0)
+
+func get_xp_ratio() -> float:
+	return clamp(current_xp / xp_threshold, 0.0, 1.0)
+
+func _update_health_visual():
+	if has_node("Visual"):
+		var visual = get_node("Visual")
+		if visual.has_method("set_health_ratio"):
+			visual.set_health_ratio(get_health_ratio())
+
+func _update_xp_visual():
+	if has_node("Visual"):
+		var visual = get_node("Visual")
+		if visual.has_method("set_xp_ratio"):
+			visual.set_xp_ratio(get_xp_ratio())
