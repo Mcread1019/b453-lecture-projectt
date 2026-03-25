@@ -21,8 +21,18 @@ var xp_ratio: float = 0.0  # 0.0 to 1.0
 @export var health_bar_radius: float = 48.0  # Outer radial health bar
 @export var xp_bar_radius: float = 42.0  # Inner radial XP bar
 
+# Rank parameters
+var rank: int = 1
+var spike_rotation: float = 0.0
+
 func _ready():
 	queue_redraw()
+
+func _process(delta: float):
+	if not is_base_visual and rank > 0:
+		# Rotate spikes faster at higher ranks
+		spike_rotation += delta * (0.5 + (rank - 1) * 0.35)
+		queue_redraw()
 
 func _draw():
 	if is_base_visual:
@@ -54,6 +64,36 @@ func _draw_billion():
 	# Small indicator/trailing circle
 	draw_circle(small_offset, small_radius, color)
 
+	# Draw rank spikes rotating around the billion
+	_draw_rank_spikes()
+
+func _draw_rank_spikes():
+	if rank <= 0:
+		return
+
+	var spike_orbit = outer_radius + 5.0
+	var spike_length = 9.0
+	var spike_half_width = 3.0
+
+	for i in range(rank):
+		var angle = spike_rotation + (TAU / rank) * i
+		var cos_a = cos(angle)
+		var sin_a = sin(angle)
+
+		# Base center of spike (at orbit radius)
+		var base_center = Vector2(cos_a, sin_a) * spike_orbit
+
+		# Tip of spike (further out)
+		var tip = Vector2(cos_a, sin_a) * (spike_orbit + spike_length)
+
+		# Left and right base points (perpendicular to spike direction)
+		var perp = Vector2(-sin_a, cos_a) * spike_half_width
+		var left = base_center + perp
+		var right = base_center - perp
+
+		# Draw spike as a filled triangle
+		draw_colored_polygon([left, tip, right], color)
+
 func _draw_base():
 	# Draw main base circle (white outer, colored inner)
 	draw_circle(Vector2.ZERO, outer_radius, Color.WHITE)
@@ -64,24 +104,33 @@ func _draw_base():
 	draw_circle(Vector2.ZERO, center_radius, Color(0.15, 0.15, 0.2))
 
 	# Draw radial health bar (outer, colored - depletes clockwise from top)
-	# Health bar starts full (TAU) and depletes as health decreases
 	if health_ratio > 0.0:
 		var health_angle = TAU * health_ratio
-		# Start from top (-PI/2) and go clockwise
 		var start_angle = -PI / 2
 		var end_angle = start_angle + health_angle
 		draw_arc(Vector2.ZERO, health_bar_radius, start_angle, end_angle, 64,
 			color, health_bar_thickness, true)
 
 	# Draw radial XP bar (inner, white - fills clockwise from top)
-	# XP bar starts empty and fills as XP increases
 	if xp_ratio > 0.0:
 		var xp_angle = TAU * xp_ratio
-		# Start from top (-PI/2) and go clockwise
 		var start_angle = -PI / 2
 		var end_angle = start_angle + xp_angle
 		draw_arc(Vector2.ZERO, xp_bar_radius, start_angle, end_angle, 64,
 			Color.WHITE, xp_bar_thickness, true)
+
+
+func _draw_rank_on_base():
+	# White circle backdrop for readability
+	draw_circle(Vector2.ZERO, 12.0, Color.WHITE)
+
+	# Draw rank number using fallback font
+	var font = ThemeDB.fallback_font
+	var font_size = 14
+	var rank_text = str(rank)
+	var string_size = font.get_string_size(rank_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var text_pos = Vector2(-string_size.x / 2.0, string_size.y / 4.0)
+	draw_string(font, text_pos, rank_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.BLACK)
 
 func set_visual_color(new_color: Color):
 	color = new_color
@@ -95,17 +144,22 @@ func set_xp_ratio(ratio: float):
 	xp_ratio = clamp(ratio, 0.0, 1.0)
 	queue_redraw()
 
+func set_rank(new_rank: int):
+	rank = new_rank
+	queue_redraw()
+
+
 # Alternative version with outline on inner circle
 func _draw_with_outline():
 	# Outer ring
-	draw_arc(Vector2.ZERO, outer_radius, 0, TAU, 32, 
+	draw_arc(Vector2.ZERO, outer_radius, 0, TAU, 32,
 		color.lightened(0.3), ring_thickness, true)
-	
+
 	# Inner circle with darker outline
 	draw_circle(Vector2.ZERO, inner_radius, color)
-	draw_arc(Vector2.ZERO, inner_radius, 0, TAU, 32, 
+	draw_arc(Vector2.ZERO, inner_radius, 0, TAU, 32,
 		color.darkened(0.3), 2.0, true)
-	
+
 	# Small circle
 	draw_circle(small_offset, small_radius, color)
 
@@ -117,13 +171,13 @@ func draw_base_visual():
 	var base_outer = 40.0
 	var base_inner = 30.0
 	var base_small = 12.0
-	
+
 	# Outer ring
-	draw_arc(Vector2.ZERO, base_outer, 0, TAU, 48, 
+	draw_arc(Vector2.ZERO, base_outer, 0, TAU, 48,
 		color.lightened(0.2), 4.0, true)
-	
+
 	# Inner circle
 	draw_circle(Vector2.ZERO, base_inner, color)
-	
+
 	# Small indicator
 	draw_circle(Vector2(0, base_outer + 8), base_small, color)

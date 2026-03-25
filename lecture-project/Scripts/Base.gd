@@ -18,9 +18,14 @@ var current_health: float = 500.0
 @export var collision_radius: float = 40.0  # For blaster collision detection
 
 # Experience parameters
-@export var xp_threshold: float = 100.0  # XP needed to rank up
+@export var xp_threshold: float = 100.0  # Initial XP needed for first rank-up
+@export var xp_per_kill: float = 10.0    # XP gained when killing an opponent billion
 var current_xp: float = 0.0
-@export var xp_per_kill: float = 25.0  # XP gained when killing an opponent billion
+var current_xp_threshold: float = 100.0  # Tracks current rank's threshold (doubles each rank)
+
+# Rank parameters
+var current_rank: int = 1
+var max_rank: int = 9
 
 var spawn_timer: Timer
 var spawned_billions: Array[Billion] = []
@@ -30,16 +35,23 @@ var turret_sprite: Sprite2D
 var turret_current_rotation: float = 0.0
 var turret_fire_timer: float = 0.0
 var base_blaster_scene: PackedScene
+var rank_label: Label
 
 func _ready():
 	# Initialize health
 	current_health = max_health
+
+	# Initialize XP threshold for rank progression
+	current_xp_threshold = xp_threshold
 
 	# Set up visual appearance
 	if has_node("Visual"):
 		var visual = get_node("Visual")
 		if visual.has_method("set_visual_color"):
 			visual.set_visual_color(base_color)
+
+	# Set up rank label above the turret (turret z_index = 1)
+	_setup_rank_label()
 
 	# Set up spawn timer
 	spawn_timer = Timer.new()
@@ -60,6 +72,26 @@ func _ready():
 	# Update visual bars
 	_update_health_visual()
 	_update_xp_visual()
+
+func _setup_rank_label():
+	rank_label = Label.new()
+	rank_label.z_index = 2  # Above base visual (0) and turret (1)
+	rank_label.text = str(current_rank)
+	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rank_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	rank_label.custom_minimum_size = Vector2(22, 22)
+	rank_label.size = Vector2(22, 22)
+	rank_label.position = Vector2(-11, -11)  # Center on base origin
+	rank_label.add_theme_font_size_override("font_size", 13)
+	rank_label.add_theme_color_override("font_color", Color.BLACK)
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color.WHITE
+	style.corner_radius_top_left = 11
+	style.corner_radius_top_right = 11
+	style.corner_radius_bottom_left = 11
+	style.corner_radius_bottom_right = 11
+	rank_label.add_theme_stylebox_override("normal", style)
+	add_child(rank_label)
 
 func _setup_turret():
 	turret_sprite = Sprite2D.new()
@@ -141,8 +173,6 @@ func _fire_base_blaster(target: Billion):
 		return
 
 	# Calculate turret barrel end position
-	# Turret image points up, rotated by turret_current_rotation
-	# The barrel direction is turret_current_rotation - PI/2 (to convert from "up" to actual direction)
 	var fire_angle = turret_current_rotation - PI / 2
 	var barrel_length = turret_sprite.texture.get_height() * 0.3 * turret_sprite.scale.y
 	var barrel_offset = Vector2(cos(fire_angle), sin(fire_angle)) * barrel_length
@@ -171,7 +201,8 @@ func spawn_billion():
 	var billion = billion_scene.instantiate() as Billion
 	billion.global_position = spawn_position
 	billion.set_billion_color(base_color)
-	billion.set_base_index(base_index)  # Set the base index so billion knows which flags to follow
+	billion.set_base_index(base_index)
+	billion.set_rank(current_rank)  # Spawn with current base rank
 
 	# Add to the parent (level) instead of to the base itself
 	get_parent().add_child(billion)
@@ -183,54 +214,54 @@ func spawn_billion():
 func find_valid_spawn_position() -> Vector2:
 	var max_attempts = 20
 	var spawn_distance = spawn_radius
-	
+
 	for attempt in range(max_attempts):
 		# Generate random angle
 		var angle = randf() * TAU
 		var offset = Vector2(cos(angle), sin(angle)) * spawn_distance
 		var test_position = global_position + offset
-		
+
 		# Check if position is valid (not overlapping)
 		if is_position_valid(test_position):
 			return test_position
-	
+
 	# If no valid position found, return zero vector
 	return Vector2.ZERO
 
 func is_position_valid(test_pos: Vector2) -> bool:
 	var check_radius = 1.0  # Smaller radius for tight clustering
-	
-	# Define arena boundaries 
-	
-	var arena_left = 80    
-	var arena_right = 1070  
-	var arena_top = 75     
-	var arena_bottom = 565   
-	
+
+	# Define arena boundaries
+
+	var arena_left = 80
+	var arena_right = 1070
+	var arena_top = 75
+	var arena_bottom = 565
+
 	# Check if position is within arena bounds
 	if test_pos.x < arena_left or test_pos.x > arena_right:
 		return false
 	if test_pos.y < arena_top or test_pos.y > arena_bottom:
 		return false
-	
+
 	# Check against other bases
 	var bases = get_tree().get_nodes_in_group("bases")
-	
+
 	for base in bases:
 		if base != self:
 			var distance = test_pos.distance_to(base.global_position)
 			if distance < check_radius + 60.0:  # Keep bases clear
 				return false
-	
+
 	# Check against existing billions
 	var billions = get_tree().get_nodes_in_group("billions")
-	
+
 	for billion in billions:
 		var distance = test_pos.distance_to(billion.global_position)
 		# Minimal spacing - billions can touch (barely prevents overlap)
 		if distance < 20.0:  # Just enough to prevent exact overlapping
 			return false
-	
+
 	return true
 
 func set_base_color(new_color: Color):
@@ -258,14 +289,27 @@ func die():
 
 func add_xp(amount: float):
 	current_xp += amount
+	_check_rank_up()
 	_update_xp_visual()
-	# Note: rank up logic could be added here in the future
+
+func _check_rank_up():
+	while current_xp >= current_xp_threshold and current_rank < max_rank:
+		current_xp -= current_xp_threshold
+		current_rank += 1
+		current_xp_threshold *= 2.0
+		_on_rank_up()
+
+func _on_rank_up():
+	if rank_label:
+		rank_label.text = str(current_rank)
+	# XP bar resets visually by recalculating ratio with new threshold
+	_update_xp_visual()
 
 func get_health_ratio() -> float:
 	return clamp(current_health / max_health, 0.0, 1.0)
 
 func get_xp_ratio() -> float:
-	return clamp(current_xp / xp_threshold, 0.0, 1.0)
+	return clamp(current_xp / current_xp_threshold, 0.0, 1.0)
 
 func _update_health_visual():
 	if has_node("Visual"):

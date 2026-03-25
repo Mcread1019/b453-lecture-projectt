@@ -97,12 +97,13 @@ func _award_xp_to_owner():
 			base_node.add_xp(base_node.xp_per_kill)
 			return
 
-func setup(pos: Vector2, dir: Vector2, col: Color, base_idx: int):
+func setup(pos: Vector2, dir: Vector2, col: Color, base_idx: int, custom_damage: float = 15.0):
 	global_position = pos
 	direction = dir.normalized()
 	shot_color = col
 	owner_base_index = base_idx
 	rotation = direction.angle()
+	damage = custom_damage
 
 func _draw():
 	# Draw the blaster shot as a small colored elongated shape

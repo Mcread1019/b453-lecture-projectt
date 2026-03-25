@@ -4,9 +4,13 @@ class_name Billion
 @export var color: Color = Color.WHITE
 @export var base_index: int = 0  # Which base/color this billion belongs to
 
-# Health parameters
-@export var max_health: float = 100.0
-var current_health: float = 100.0
+# Health parameters (overridden by rank in _ready)
+var max_health: float = 20.0
+var current_health: float = 20.0
+
+# Rank parameters (set before adding to tree via set_rank)
+var billion_rank: int = 1
+var blaster_damage: float = 4.0  # Scales with rank
 
 # Physics parameters
 @export var max_speed: float = 200.0
@@ -35,8 +39,11 @@ var fire_timer: float = 0.0
 var blaster_scene: PackedScene
 
 func _ready():
-	# Initialize health
+	# Compute health and damage from rank
+	max_health = _get_health_for_rank(billion_rank)
 	current_health = max_health
+	blaster_damage = _get_damage_for_rank(billion_rank)
+
 	# Set up the visual appearance based on color
 	update_visual_color()
 	update_health_visual()
@@ -48,6 +55,12 @@ func _ready():
 	blaster_scene = load("res://Scene/Blaster.tscn")
 	# Randomize initial fire timer so not all billions fire at once
 	fire_timer = randf() * fire_interval
+
+func _get_health_for_rank(r: int) -> float:
+	return r * 20.0
+
+func _get_damage_for_rank(r: int) -> float:
+	return r * 4.0
 
 func _setup_turret():
 	turret_sprite = Sprite2D.new()
@@ -106,7 +119,6 @@ func _fire_blaster(target: Node2D):
 		return
 
 	# Calculate turret barrel end position in global space
-	# The turret offset is along the local X axis of the turret sprite
 	var turret_angle = turret_sprite.rotation
 	var barrel_length = turret_sprite.texture.get_width() * 0.45 * turret_sprite.scale.x
 	# Account for the billion's own scale (0.5)
@@ -118,7 +130,7 @@ func _fire_blaster(target: Node2D):
 
 	var blaster = blaster_scene.instantiate() as Blaster
 	get_tree().current_scene.add_child(blaster)
-	blaster.setup(spawn_pos, fire_direction, color, base_index)
+	blaster.setup(spawn_pos, fire_direction, color, base_index, blaster_damage)
 
 func _get_nearest_flag_position() -> Vector2:
 	var flags = get_tree().get_nodes_in_group("flags")
@@ -264,9 +276,7 @@ func _update_turret_rotation():
 	var nearest_target = _get_nearest_target()
 	if nearest_target:
 		# Calculate angle from this billion to the nearest target
-		# The cannon texture points to the right (0 radians), so angle_to_point works directly
 		var direction = nearest_target.global_position - global_position
-		# Account for the parent's scale (0.5, 0.5) - rotation is in local space
 		turret_sprite.rotation = direction.angle()
 
 func _get_nearest_opponent() -> Billion:
@@ -325,6 +335,17 @@ func set_billion_color(new_color: Color):
 
 func set_base_index(index: int):
 	base_index = index
+
+func set_rank(new_rank: int):
+	billion_rank = new_rank
+	# If already in the tree, update stats immediately; otherwise _ready() will do it
+	if is_inside_tree():
+		max_health = _get_health_for_rank(billion_rank)
+		current_health = max_health
+		blaster_damage = _get_damage_for_rank(billion_rank)
+		update_health_visual()
+	if has_node("Visual"):
+		get_node("Visual").set_rank(new_rank)
 
 func update_visual_color():
 	# Update the Visual node's color if it exists and has the set_visual_color function
