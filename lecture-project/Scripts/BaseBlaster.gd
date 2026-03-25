@@ -2,7 +2,7 @@ extends Node2D
 class_name BaseBlaster
 
 @export var speed: float = 300.0
-@export var max_distance: float = 450.0  # Different from billion blaster (300)
+@export var max_distance: float = 250.0  # Different from billion blaster (300)
 @export var damage: float = 25.0  # Different from billion blaster (15)
 @export var shot_radius: float = 5.0  # Larger than billion blaster (3)
 
