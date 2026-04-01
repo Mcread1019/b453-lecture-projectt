@@ -12,13 +12,20 @@ var base_colors = [
 	Color(0.3, 0.5, 0.9),  # Blue
 ]
 
-# Positions for the four bases (adjusted for sprite-based arena)
-var base_positions = [
-	Vector2(250, 180),   # Top-left area
-	Vector2(900, 180),   # Top-right area
-	Vector2(250, 460),   # Bottom-left area
-	Vector2(900, 460),   # Bottom-right area
-]
+# Arena boundaries (must match Base.gd / Billion.gd)
+const ARENA_LEFT: float = 80.0
+const ARENA_RIGHT: float = 1070.0
+const ARENA_TOP: float = 75.0
+const ARENA_BOTTOM: float = 565.0
+
+# Wall margin: base spawn_radius (51) + billion collision radius (6) + buffer so
+# billions can comfortably orbit the full base perimeter without clipping a wall.
+const WALL_MARGIN: float = 70.0
+
+# Minimum centre-to-centre distance between any two bases.
+# Equals the base turret fire range so no base starts within firing range
+# of an opposing turret.
+const MIN_BASE_SEPARATION: float = 300.0
 
 # Flags for each base (max 2 flags per base)
 var base_flags: Array = [[], [], [], []]  # Array of arrays, one per base
@@ -30,7 +37,57 @@ var drag_base_index: int = -1
 func _ready():
 	spawn_bases()
 
+# Returns four Vector2 positions that satisfy wall-margin and base-separation
+# constraints, using rejection sampling with full restarts when needed.
+func generate_base_positions() -> Array:
+	var min_x: float = ARENA_LEFT  + WALL_MARGIN
+	var max_x: float = ARENA_RIGHT - WALL_MARGIN
+	var min_y: float = ARENA_TOP   + WALL_MARGIN
+	var max_y: float = ARENA_BOTTOM - WALL_MARGIN
+
+	var max_restarts:       int = 200
+	var max_attempts_each:  int = 2000
+
+	for _restart in range(max_restarts):
+		var positions: Array = []
+		var all_placed := true
+
+		for _i in range(4):
+			var placed := false
+			for _attempt in range(max_attempts_each):
+				var candidate := Vector2(
+					randf_range(min_x, max_x),
+					randf_range(min_y, max_y)
+				)
+				var valid := true
+				for existing in positions:
+					if candidate.distance_to(existing) < MIN_BASE_SEPARATION:
+						valid = false
+						break
+				if valid:
+					positions.append(candidate)
+					placed = true
+					break
+
+			if not placed:
+				all_placed = false
+				break
+
+		if all_placed:
+			return positions
+
+	# Fallback: original corner positions (should almost never be reached)
+	push_warning("Base placement: could not satisfy all constraints; using default positions.")
+	return [
+		Vector2(250, 180),
+		Vector2(900, 180),
+		Vector2(250, 460),
+		Vector2(900, 460),
+	]
+
 func spawn_bases():
+	var base_positions: Array = generate_base_positions()
+
 	for i in range(4):
 		if not base_scene:
 			push_error("Base scene not assigned!")

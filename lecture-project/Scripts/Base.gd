@@ -10,7 +10,7 @@ class_name Base
 # Turret parameters
 @export var turret_rotation_speed: float = 2.0  # Radians per second
 @export var turret_fire_interval: float = 2.0  # Different from billion fire interval (1.5)
-@export var turret_fire_range: float = 400.0  # Range to start firing
+@export var turret_fire_range: float = 50.0  # Range to start firing
 
 # Health parameters
 @export var max_health: float = 500.0
