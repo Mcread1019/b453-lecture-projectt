@@ -20,12 +20,6 @@ var blaster_damage: float = 4.0  # Scales with rank
 @export var mass: float = 1.0
 @export var collision_radius: float = 6.0  # Effective radius with scale 0.5
 
-# Arena boundaries
-var arena_left: float = 80.0
-var arena_right: float = 1070.0
-var arena_top: float = 75.0
-var arena_bottom: float = 565.0
-
 # Current velocity for physics
 var physics_velocity: Vector2 = Vector2.ZERO
 
@@ -87,9 +81,6 @@ func _physics_process(delta: float):
 	# Apply velocity
 	velocity = physics_velocity
 	move_and_slide()
-
-	# Clamp to arena bounds
-	_clamp_to_arena()
 
 	# Update turret rotation to point at nearest opponent
 	_update_turret_rotation()
@@ -241,33 +232,6 @@ func _handle_base_collisions():
 			var velocity_toward_base = physics_velocity.dot(-normal)
 			if velocity_toward_base > 0:
 				physics_velocity += normal * velocity_toward_base * 1.5  # Bounce with some force
-
-func _clamp_to_arena():
-	var clamped = false
-
-	# Left boundary
-	if global_position.x - collision_radius < arena_left:
-		global_position.x = arena_left + collision_radius
-		physics_velocity.x = abs(physics_velocity.x) * 0.5  # Bounce with damping
-		clamped = true
-
-	# Right boundary
-	if global_position.x + collision_radius > arena_right:
-		global_position.x = arena_right - collision_radius
-		physics_velocity.x = -abs(physics_velocity.x) * 0.5
-		clamped = true
-
-	# Top boundary
-	if global_position.y - collision_radius < arena_top:
-		global_position.y = arena_top + collision_radius
-		physics_velocity.y = abs(physics_velocity.y) * 0.5
-		clamped = true
-
-	# Bottom boundary
-	if global_position.y + collision_radius > arena_bottom:
-		global_position.y = arena_bottom - collision_radius
-		physics_velocity.y = -abs(physics_velocity.y) * 0.5
-		clamped = true
 
 func _update_turret_rotation():
 	if not turret_sprite:

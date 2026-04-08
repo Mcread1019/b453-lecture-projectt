@@ -11,15 +11,12 @@ var shot_color: Color = Color.WHITE
 var owner_base_index: int = -1
 var distance_traveled: float = 0.0
 
-# Arena boundaries
-var arena_left: float = 80.0
-var arena_right: float = 1070.0
-var arena_top: float = 75.0
-var arena_bottom: float = 565.0
+var _arena_gen: ArenaGenerator = null
 
 func _ready():
 	add_to_group("blasters")
 	z_index = 0
+	_arena_gen = get_tree().get_first_node_in_group("arena_generator") as ArenaGenerator
 
 func _physics_process(delta: float):
 	# Move in the set direction
@@ -42,10 +39,11 @@ func _physics_process(delta: float):
 	_check_base_collisions()
 
 func _is_outside_arena() -> bool:
-	return (global_position.x < arena_left or
-			global_position.x > arena_right or
-			global_position.y < arena_top or
-			global_position.y > arena_bottom)
+	if _arena_gen:
+		return not _arena_gen.is_traversable_world(global_position)
+	# Fallback: use the full grid pixel bounds.
+	return (global_position.x < 0 or global_position.x > ArenaGenerator.GRID_COLS * ArenaGenerator.TILE_SIZE or
+			global_position.y < 0 or global_position.y > ArenaGenerator.GRID_ROWS * ArenaGenerator.TILE_SIZE)
 
 func _check_billion_collisions():
 	var billions = get_tree().get_nodes_in_group("billions")

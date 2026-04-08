@@ -231,17 +231,9 @@ func find_valid_spawn_position() -> Vector2:
 func is_position_valid(test_pos: Vector2) -> bool:
 	var check_radius = 1.0  # Smaller radius for tight clustering
 
-	# Define arena boundaries
-
-	var arena_left = 80
-	var arena_right = 1070
-	var arena_top = 75
-	var arena_bottom = 565
-
-	# Check if position is within arena bounds
-	if test_pos.x < arena_left or test_pos.x > arena_right:
-		return false
-	if test_pos.y < arena_top or test_pos.y > arena_bottom:
+	# Check if position is on a traversable floor tile.
+	var arena_gen = get_tree().get_first_node_in_group("arena_generator") as ArenaGenerator
+	if arena_gen and not arena_gen.is_traversable_world(test_pos):
 		return false
 
 	# Check against other bases

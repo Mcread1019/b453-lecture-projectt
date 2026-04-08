@@ -12,16 +12,6 @@ var base_colors = [
 	Color(0.3, 0.5, 0.9),  # Blue
 ]
 
-# Arena boundaries (must match Base.gd / Billion.gd)
-const ARENA_LEFT: float = 80.0
-const ARENA_RIGHT: float = 1070.0
-const ARENA_TOP: float = 75.0
-const ARENA_BOTTOM: float = 565.0
-
-# Wall margin: base spawn_radius (51) + billion collision radius (6) + buffer so
-# billions can comfortably orbit the full base perimeter without clipping a wall.
-const WALL_MARGIN: float = 70.0
-
 # Minimum centre-to-centre distance between any two bases.
 # Equals the base turret fire range so no base starts within firing range
 # of an opposing turret.
@@ -34,19 +24,43 @@ var base_flags: Array = [[], [], [], []]  # Array of arrays, one per base
 var dragging_flag: Flag = null
 var drag_base_index: int = -1
 
+# Procedural arena generator (created in _ready before bases spawn)
+var arena_gen: ArenaGenerator = null
+
 func _ready():
+	# Build the arena first so bases can be placed on valid floor tiles.
+	arena_gen = ArenaGenerator.new()
+	add_child(arena_gen)
+	arena_gen.generate()
+
+	# Camera centred on the arena, zoomed out to show the full grid.
+	var camera := Camera2D.new()
+	camera.position = Vector2(
+		ArenaGenerator.GRID_COLS * ArenaGenerator.TILE_SIZE * 0.5,
+		ArenaGenerator.GRID_ROWS * ArenaGenerator.TILE_SIZE * 0.5
+	)
+	camera.zoom = Vector2(0.82, 0.82)
+	add_child(camera)
+
 	spawn_bases()
 
-# Returns four Vector2 positions that satisfy wall-margin and base-separation
-# constraints, using rejection sampling with full restarts when needed.
+# Returns four Vector2 positions on valid arena floor tiles that satisfy the
+# minimum base-separation constraint, using rejection sampling.
 func generate_base_positions() -> Array:
-	var min_x: float = ARENA_LEFT  + WALL_MARGIN
-	var max_x: float = ARENA_RIGHT - WALL_MARGIN
-	var min_y: float = ARENA_TOP   + WALL_MARGIN
-	var max_y: float = ARENA_BOTTOM - WALL_MARGIN
+	# clearance=2 ensures 160 px of floor in every direction from a base centre,
+	# which is enough for the spawn orbit (51 px) so billions never get trapped
+	# between the base edge and a wall.  Fall back to clearance=1 if the arena
+	# happened to generate very few deep-interior tiles.
+	var floor_positions: Array = arena_gen.get_valid_floor_positions(2, 2)
+	if floor_positions.size() < 4:
+		floor_positions = arena_gen.get_valid_floor_positions(2, 1)
 
-	var max_restarts:       int = 200
-	var max_attempts_each:  int = 2000
+	if floor_positions.is_empty():
+		push_warning("ArenaGenerator returned no valid floor positions; using defaults.")
+		return [Vector2(200, 200), Vector2(900, 200), Vector2(200, 500), Vector2(900, 500)]
+
+	var max_restarts:      int = 200
+	var max_attempts_each: int = 2000
 
 	for _restart in range(max_restarts):
 		var positions: Array = []
@@ -55,10 +69,7 @@ func generate_base_positions() -> Array:
 		for _i in range(4):
 			var placed := false
 			for _attempt in range(max_attempts_each):
-				var candidate := Vector2(
-					randf_range(min_x, max_x),
-					randf_range(min_y, max_y)
-				)
+				var candidate: Vector2 = floor_positions[randi() % floor_positions.size()]
 				var valid := true
 				for existing in positions:
 					if candidate.distance_to(existing) < MIN_BASE_SEPARATION:
@@ -76,14 +87,25 @@ func generate_base_positions() -> Array:
 		if all_placed:
 			return positions
 
-	# Fallback: original corner positions (should almost never be reached)
-	push_warning("Base placement: could not satisfy all constraints; using default positions.")
-	return [
-		Vector2(250, 180),
-		Vector2(900, 180),
-		Vector2(250, 460),
-		Vector2(900, 460),
-	]
+	# Fallback: pick the most spread-out positions we can find.
+	push_warning("Base placement: MIN_BASE_SEPARATION could not be satisfied; using best effort.")
+	floor_positions.shuffle()
+	var result: Array = []
+	for pos: Vector2 in floor_positions:
+		if result.size() >= 4:
+			break
+		var ok := true
+		for existing in result:
+			if pos.distance_to(existing) < MIN_BASE_SEPARATION * 0.5:
+				ok = false
+				break
+		if ok:
+			result.append(pos)
+
+	while result.size() < 4 and result.size() < floor_positions.size():
+		result.append(floor_positions[result.size()])
+
+	return result
 
 func spawn_bases():
 	var base_positions: Array = generate_base_positions()
