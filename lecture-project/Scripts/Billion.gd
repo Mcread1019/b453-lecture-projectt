@@ -4,6 +4,10 @@ class_name Billion
 @export var color: Color = Color.WHITE
 @export var base_index: int = 0  # Which base/color this billion belongs to
 
+# ── Class system ──────────────────────────────────────────────────────────────
+enum BillionClass { NONE, GUNNER, SNIPER, TANK }
+var billion_class: BillionClass = BillionClass.NONE
+
 # Health parameters (overridden by rank in _ready)
 var max_health: float = 20.0
 var current_health: float = 20.0
@@ -33,10 +37,13 @@ var fire_timer: float = 0.0
 var blaster_scene: PackedScene
 
 func _ready():
-	# Compute health and damage from rank
+	# Compute base health and damage from rank
 	max_health = _get_health_for_rank(billion_rank)
 	current_health = max_health
 	blaster_damage = _get_damage_for_rank(billion_rank)
+
+	# Apply class stat modifiers (class assigned in set_rank before _ready)
+	_apply_class_stats()
 
 	# Set up the visual appearance based on color
 	update_visual_color()
@@ -45,6 +52,8 @@ func _ready():
 	z_index = 0
 	# Set up turret
 	_setup_turret()
+	# Notify the Visual node about the class (for accessories)
+	_setup_class_visual()
 	# Load blaster scene
 	blaster_scene = load("res://Scene/Blaster.tscn")
 	# Randomize initial fire timer so not all billions fire at once
@@ -55,6 +64,46 @@ func _get_health_for_rank(r: int) -> float:
 
 func _get_damage_for_rank(r: int) -> float:
 	return r * 4.0
+
+# ── Class helpers ─────────────────────────────────────────────────────────────
+
+## Randomly assign a class; called from set_rank() when rank >= 4.
+func _assign_random_class() -> void:
+	match randi() % 3:
+		0: billion_class = BillionClass.GUNNER
+		1: billion_class = BillionClass.SNIPER
+		2: billion_class = BillionClass.TANK
+
+## Apply per-class stat multipliers.  Called in _ready() after base stats are set.
+func _apply_class_stats() -> void:
+	match billion_class:
+		BillionClass.GUNNER:
+			fire_interval *= 0.5        # 2× fire rate
+		BillionClass.SNIPER:
+			fire_range   *= 2.0         # 2× range
+		BillionClass.TANK:
+			max_health   *= 2.0         # 2× HP
+			current_health = max_health
+			scale          = Vector2(0.75, 0.75)   # 1.5× size (base scale is 0.5)
+			collision_radius = 9.0                  # 12.0 × 0.75
+
+## Tell the Visual child which class this billion is so it can draw the badge.
+func _setup_class_visual() -> void:
+	if not has_node("Visual"):
+		return
+	var visual = get_node("Visual") as BillionVisual
+	if visual and visual.has_method("setup_class_visual"):
+		var class_name_str: String
+		match billion_class:
+			BillionClass.GUNNER: class_name_str = "gunner"
+			BillionClass.SNIPER: class_name_str = "sniper"
+			BillionClass.TANK:   class_name_str = "tank"
+			_:                   class_name_str = ""
+		visual.setup_class_visual(class_name_str)
+
+## Allow external code (e.g. portal teleport) to zero out physics velocity.
+func reset_physics_velocity() -> void:
+	physics_velocity = Vector2.ZERO
 
 func _setup_turret():
 	turret_sprite = Sprite2D.new()
@@ -302,6 +351,9 @@ func set_base_index(index: int):
 
 func set_rank(new_rank: int):
 	billion_rank = new_rank
+	# Assign a fresh random class at rank 4+ (every new billion re-rolls).
+	if billion_rank >= 4:
+		_assign_random_class()
 	# If already in the tree, update stats immediately; otherwise _ready() will do it
 	if is_inside_tree():
 		max_health = _get_health_for_rank(billion_rank)

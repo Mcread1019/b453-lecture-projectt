@@ -24,6 +24,13 @@ var base_flags: Array = [[], [], [], []]  # Array of arrays, one per base
 var dragging_flag: Flag = null
 var drag_base_index: int = -1
 
+# Portal state
+var _portals: Array = []
+var _portal_timer: float = 0.0
+const PORTAL_SPAWN_INTERVAL: float = 30.0
+const MIN_PORTAL_SEPARATION: float = 200.0
+const MIN_PORTAL_BASE_DISTANCE: float = 150.0
+
 # Procedural arena generator (created in _ready before bases spawn)
 var arena_gen: ArenaGenerator = null
 
@@ -126,6 +133,76 @@ func spawn_bases():
 
 		# Apply the color after adding to tree
 		base.set_base_color(base_colors[i])
+
+func _process(delta: float) -> void:
+	_portal_timer += delta
+	if _portal_timer >= PORTAL_SPAWN_INTERVAL:
+		_portal_timer = 0.0
+		_spawn_portals()
+
+func _spawn_portals() -> void:
+	# Free existing portals.
+	for p in _portals:
+		if is_instance_valid(p):
+			p.queue_free()
+	_portals.clear()
+
+	var positions: Array = _get_portal_positions()
+	if positions.size() < 4:
+		push_warning("Not enough valid positions for portals; skipping spawn.")
+		return
+
+	# Create 4 portals.
+	for i in range(4):
+		var portal: Portal = Portal.new()
+		portal.global_position = positions[i]
+		add_child(portal)
+		_portals.append(portal)
+
+	# Link in pairs: 0↔1 and 2↔3.
+	_portals[0].linked_portal = _portals[1]
+	_portals[1].linked_portal = _portals[0]
+	_portals[2].linked_portal = _portals[3]
+	_portals[3].linked_portal = _portals[2]
+
+func _get_portal_positions() -> Array:
+	if not arena_gen:
+		return []
+
+	var candidates: Array = arena_gen.get_valid_floor_positions(2, 1)
+	candidates.shuffle()
+
+	# Gather current base positions for distance filtering.
+	var base_positions: Array = []
+	for b in get_tree().get_nodes_in_group("bases"):
+		if is_instance_valid(b):
+			base_positions.append(b.global_position)
+
+	var chosen: Array = []
+	for pos: Vector2 in candidates:
+		if chosen.size() >= 4:
+			break
+
+		# Must be far enough from other chosen portals.
+		var ok := true
+		for cp: Vector2 in chosen:
+			if pos.distance_to(cp) < MIN_PORTAL_SEPARATION:
+				ok = false
+				break
+		if not ok:
+			continue
+
+		# Must be far enough from all bases.
+		for bp: Vector2 in base_positions:
+			if pos.distance_to(bp) < MIN_PORTAL_BASE_DISTANCE:
+				ok = false
+				break
+		if not ok:
+			continue
+
+		chosen.append(pos)
+
+	return chosen
 
 func _input(event: InputEvent):
 	# Determine which base is being controlled based on key held

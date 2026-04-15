@@ -25,6 +25,10 @@ var xp_ratio: float = 0.0  # 0.0 to 1.0
 var rank: int = 1
 var spike_rotation: float = 0.0
 
+# Class badge
+var billion_class: String = ""
+var _bullet_sprite: Sprite2D = null
+
 func _ready():
 	queue_redraw()
 
@@ -67,6 +71,9 @@ func _draw_billion():
 	# Draw rank spikes rotating around the billion
 	_draw_rank_spikes()
 
+	# Draw class badge (sniper hat / tank armor ring)
+	_draw_class_badge()
+
 func _draw_rank_spikes():
 	if rank <= 0:
 		return
@@ -93,6 +100,24 @@ func _draw_rank_spikes():
 
 		# Draw spike as a filled triangle
 		draw_colored_polygon([left, tip, right], color)
+
+func _draw_class_badge() -> void:
+	match billion_class:
+		"sniper":
+			# Top-hat sitting on the crown of the circle.
+			var hat_dark := Color(0.12, 0.08, 0.04)
+			var top := -(outer_radius + 1.0)
+			# Brim — wide flat band
+			draw_rect(Rect2(-13.0, top - 3.0, 26.0, 4.0), hat_dark)
+			# Crown — narrower tall block
+			draw_rect(Rect2(-8.0, top - 16.0, 16.0, 14.0), hat_dark)
+			# Highlight stripe on crown
+			draw_rect(Rect2(-8.0, top - 6.0, 16.0, 2.0),
+				Color(0.35, 0.25, 0.12))
+		"tank":
+			# Extra thick armor ring around the outside.
+			draw_arc(Vector2.ZERO, outer_radius + 5.0, 0.0, TAU, 48,
+				color.darkened(0.4), 4.0)
 
 func _draw_base():
 	# Draw main base circle (white outer, colored inner)
@@ -131,6 +156,22 @@ func _draw_rank_on_base():
 	var string_size = font.get_string_size(rank_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var text_pos = Vector2(-string_size.x / 2.0, string_size.y / 4.0)
 	draw_string(font, text_pos, rank_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.BLACK)
+
+## Called by Billion._setup_class_visual() to configure the badge.
+func setup_class_visual(class_str: String) -> void:
+	billion_class = class_str
+	# Gunner gets a cannonball sprite sitting on top of the circle.
+	if class_str == "gunner":
+		_bullet_sprite = Sprite2D.new()
+		_bullet_sprite.texture = load(
+			"res://kenney_pirate-pack/PNG/Default size/Ship parts/cannonBall.png"
+		)
+		# Scale up the 10×10 sprite so it reads at the unit's zoom level.
+		_bullet_sprite.scale   = Vector2(3.0, 3.0)
+		_bullet_sprite.position = Vector2(0, -(outer_radius + 10))
+		_bullet_sprite.z_index  = 3
+		add_child(_bullet_sprite)
+	queue_redraw()
 
 func set_visual_color(new_color: Color):
 	color = new_color
